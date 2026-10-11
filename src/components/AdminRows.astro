@@ -1,0 +1,66 @@
+---
+import type { ItemSummary } from '../lib/db';
+import { t } from '../lib/site';
+
+interface Props {
+	items: ItemSummary[];
+}
+
+const { items } = Astro.props;
+---
+
+{
+	items.map((item) => (
+		<li>
+			<a href={`/admin/${item.id}`}>
+				<span class="thumb">{item.cover && <img src={`/img/${item.cover}`} alt="" loading="lazy" />}</span>
+				<span class="title">{item.title}</span>
+				<span class:list={['badge', { live: item.published }]}>{item.published ? t.published : t.draft}</span>
+			</a>
+		</li>
+	))
+}
+
+<style>
+	li + li {
+		border-top: 1px solid var(--border);
+	}
+
+	a {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		padding: 0.65rem 1rem;
+		color: var(--text);
+		text-decoration: none;
+		transition: background-color 0.15s;
+	}
+
+	a:hover {
+		background: var(--surface-2);
+	}
+
+	.thumb {
+		flex: none;
+		width: 4.25rem;
+		height: 3.2rem;
+		overflow: hidden;
+		background: var(--surface-2);
+		border-radius: 6px;
+	}
+
+	.thumb img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	.title {
+		flex: 1;
+		min-width: 0;
+		overflow: hidden;
+		font-weight: 600;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+</style>

@@ -1,0 +1,308 @@
+---
+import { listTags, type Item } from '../lib/db';
+import { site, t } from '../lib/site';
+
+interface Props {
+	item?: Item;
+}
+
+const { item } = Astro.props;
+const allTags = await listTags({ drafts: true });
+---
+
+<form method="post">
+	<div class="field">
+		<label for="title">{t.title}</label>
+		<input type="text" id="title" name="title" value={item?.title} required />
+	</div>
+	{
+		site.fields.map((field) => (
+			<div class="field">
+				<label for={`field-${field.key}`}>
+					{field.label}
+					{field.private && <span class="muted"> ({t.privateField})</span>}
+				</label>
+				{field.type === 'longtext' ? (
+					<textarea id={`field-${field.key}`} name={`field-${field.key}`} set:text={item?.fields[field.key] ?? ''} />
+				) : (
+					<input
+						type="text"
+						id={`field-${field.key}`}
+						name={`field-${field.key}`}
+						value={item?.fields[field.key]}
+					/>
+				)}
+			</div>
+		))
+	}
+	<div class="field">
+		<label for="tags">{t.tags}</label>
+		<!-- Plain comma-separated input; the script below turns it into chips with autocomplete. -->
+		<div class="tag-input" data-known={JSON.stringify(allTags.map((tag) => tag.name))} data-remove={t.delete}>
+			<input
+				type="text"
+				id="tags"
+				name="tags"
+				value={item?.tags.map((tag) => tag.name).join(', ')}
+				placeholder={t.tagsHint}
+				autocomplete="off"
+			/>
+		</div>
+	</div>
+	<div class="actions">
+		<label class="check">
+			<input type="checkbox" name="published" checked={item ? item.published : true} />
+			{t.published}
+		</label>
+		<button name="action" value="save">{t.save}</button>
+	</div>
+</form>
+
+<style>
+	.actions {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding-top: 1.25rem;
+		border-top: 1px solid var(--border);
+	}
+
+	.check {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin: 0;
+		cursor: pointer;
+	}
+</style>
+
+<!-- Global because the chips and the suggestion list are created by the script. -->
+<style is:global>
+	.tag-input {
+		position: relative;
+	}
+
+	.tag-box {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0.4rem 0.5rem;
+		background: var(--bg);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-small);
+		cursor: text;
+		transition:
+			border-color 0.15s,
+			box-shadow 0.15s;
+	}
+
+	.tag-box:focus-within {
+		border-color: var(--accent);
+		box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+	}
+
+	.tag-box .chip {
+		padding-right: 0.3rem;
+		cursor: default;
+	}
+
+	.tag-box .chip button {
+		width: 1.2rem;
+		height: 1.2rem;
+		padding: 0;
+		font-size: 1rem;
+		font-weight: 400;
+		line-height: 1;
+		color: var(--muted);
+		background: transparent;
+	}
+
+	.tag-box .chip button:hover {
+		color: var(--bg);
+		background: var(--danger);
+		filter: none;
+	}
+
+	/* The box draws the border and focus ring; the input inside stays bare. */
+	.tag-box input[type='text'],
+	.tag-box input[type='text']:focus {
+		flex: 1;
+		width: auto;
+		min-width: 9rem;
+		padding: 0.25rem 0.3rem;
+		background: transparent;
+		border: 0;
+		box-shadow: none;
+	}
+
+	.tag-suggestions {
+		position: absolute;
+		z-index: 5;
+		top: calc(100% + 0.3rem);
+		left: 0;
+		right: 0;
+		max-height: 14rem;
+		padding: 0.3rem;
+		margin: 0;
+		overflow-y: auto;
+		list-style: none;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-small);
+		box-shadow: 0 12px 28px -12px var(--shadow);
+	}
+
+	.tag-suggestions li {
+		padding: 0.4rem 0.6rem;
+		border-radius: 6px;
+		cursor: pointer;
+	}
+
+	.tag-suggestions li[aria-selected='true'] {
+		background: var(--surface-2);
+	}
+</style>
+
+<script>
+	import { fold as foldText } from '../lib/text';
+
+	// Case and accents are ignored when comparing, like the server does when it builds the tag slug.
+	const fold = (text: string) => foldText(text).trim();
+
+	const root = document.querySelector<HTMLElement>('.tag-input')!;
+	const field = root.querySelector<HTMLInputElement>('input')!;
+	const known: string[] = JSON.parse(root.dataset.known!);
+
+	let tags = field.value
+		.split(',')
+		.map((tag) => tag.trim())
+		.filter(Boolean);
+
+	// The original input keeps carrying the value to the server; a new one takes over the typing.
+	const entry = document.createElement('input');
+	entry.type = 'text';
+	entry.id = field.id;
+	entry.placeholder = field.placeholder;
+	entry.autocomplete = 'off';
+	entry.setAttribute('role', 'combobox');
+	entry.setAttribute('aria-autocomplete', 'list');
+	field.type = 'hidden';
+	field.removeAttribute('id');
+
+	const box = document.createElement('div');
+	box.className = 'tag-box';
+	const list = document.createElement('ul');
+	list.className = 'tag-suggestions';
+	list.setAttribute('role', 'listbox');
+	list.hidden = true;
+	// appendChild rather than append: the Workers types shadow Element.append with HTMLRewriter's.
+	box.appendChild(entry);
+	root.appendChild(box);
+	root.appendChild(list);
+	box.addEventListener('click', () => entry.focus());
+
+	let matches: string[] = [];
+	let selected = -1;
+
+	function renderChips() {
+		field.value = tags.join(', ');
+		for (const chip of box.querySelectorAll('.chip')) chip.remove();
+		for (const tag of tags) {
+			const chip = document.createElement('span');
+			chip.className = 'chip';
+			chip.textContent = tag;
+			const remove = document.createElement('button');
+			remove.type = 'button';
+			remove.textContent = '×';
+			remove.setAttribute('aria-label', `${root.dataset.remove} ${tag}`);
+			remove.addEventListener('click', () => {
+				tags = tags.filter((other) => other !== tag);
+				renderChips();
+				entry.focus();
+			});
+			chip.appendChild(remove);
+			box.insertBefore(chip, entry);
+		}
+	}
+
+	function renderSuggestions() {
+		const typed = fold(entry.value);
+		const used = new Set(tags.map(fold));
+		matches = known
+			.filter((name) => !used.has(fold(name)) && fold(name).includes(typed))
+			// Tags that start with what was typed come first.
+			.sort((x, y) => Number(fold(y).startsWith(typed)) - Number(fold(x).startsWith(typed)));
+		selected = typed && matches.length ? 0 : -1;
+		list.replaceChildren(
+			...matches.map((name, index) => {
+				const option = document.createElement('li');
+				option.textContent = name;
+				option.setAttribute('role', 'option');
+				option.setAttribute('aria-selected', String(index === selected));
+				// mousedown, so the pick happens before the input loses focus.
+				option.addEventListener('mousedown', (event) => {
+					event.preventDefault();
+					add(name);
+				});
+				return option;
+			}),
+		);
+		// Suggestions appear while typing (or with the down arrow), not just for having the cursor here.
+		list.hidden = matches.length === 0 || !typed || document.activeElement !== entry;
+	}
+
+	function select(index: number) {
+		selected = (index + matches.length) % matches.length;
+		[...list.children].forEach((option, i) => option.setAttribute('aria-selected', String(i === selected)));
+		list.children[selected]?.scrollIntoView({ block: 'nearest' });
+	}
+
+	function add(text: string) {
+		const name = text.trim();
+		entry.value = '';
+		if (name && !tags.some((tag) => fold(tag) === fold(name))) {
+			// An existing tag keeps its spelling, whatever way it was typed.
+			tags.push(known.find((other) => fold(other) === fold(name)) ?? name);
+			renderChips();
+		}
+		renderSuggestions();
+	}
+
+	entry.addEventListener('input', () => {
+		// Typing or pasting a comma finishes the tag.
+		if (entry.value.includes(',')) {
+			const parts = entry.value.split(',');
+			const rest = parts.pop()!;
+			parts.forEach(add);
+			entry.value = rest;
+		}
+		renderSuggestions();
+	});
+	entry.addEventListener('focus', renderSuggestions);
+	entry.addEventListener('blur', () => (list.hidden = true));
+	entry.addEventListener('keydown', (event) => {
+		if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+			if (matches.length === 0) return;
+			event.preventDefault();
+			list.hidden = false;
+			select(selected + (event.key === 'ArrowDown' ? 1 : -1));
+		} else if (event.key === 'Enter') {
+			// Enter saves the form only when there is nothing left to add.
+			if (!entry.value.trim() && selected < 0) return;
+			event.preventDefault();
+			add(selected >= 0 ? matches[selected] : entry.value);
+		} else if (event.key === 'Backspace' && !entry.value && tags.length) {
+			tags.pop();
+			renderChips();
+			renderSuggestions();
+		} else if (event.key === 'Escape') {
+			list.hidden = true;
+		}
+	});
+	// A tag typed but not confirmed still counts when the form is saved.
+	field.form!.addEventListener('submit', () => add(entry.value));
+
+	renderChips();
+</script>

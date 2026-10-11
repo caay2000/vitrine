@@ -1,0 +1,29 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"compatibility_date": "2026-10-06",
+	"compatibility_flags": ["global_fetch_strictly_public"],
+	"name": "vitrine",
+	"main": "@astrojs/cloudflare/entrypoints/server",
+	"assets": {
+		"directory": "./dist",
+		"binding": "ASSETS"
+	},
+	// Items and photo metadata.
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "vitrine",
+			"migrations_dir": "migrations"
+		}
+	],
+	// Photo files.
+	"r2_buckets": [
+		{
+			"binding": "PHOTOS",
+			"bucket_name": "vitrine-photos"
+		}
+	],
+	"observability": {
+		"enabled": true
+	}
+}
