@@ -1,0 +1,47 @@
+---
+import Base from '../../layouts/Base.astro';
+import { checkPassword, hasAdminPassword } from '../../lib/auth';
+import { t } from '../../lib/site';
+
+let error = hasAdminPassword() ? '' : t.noPassword;
+
+if (Astro.request.method === 'POST') {
+	const form = await Astro.request.formData();
+	if (await checkPassword(String(form.get('password') ?? ''))) {
+		await Astro.session?.regenerate();
+		Astro.session?.set('admin', true);
+		return Astro.redirect('/admin');
+	}
+	error ||= t.wrongPassword;
+}
+---
+
+<Base title={t.login}>
+	<form method="post" class="login card">
+		<h1>{t.admin}</h1>
+		{error && <p class="notice">{error}</p>}
+		<div class="field">
+			<label for="password">{t.password}</label>
+			<input type="password" id="password" name="password" autocomplete="current-password" required autofocus />
+		</div>
+		<button>{t.login}</button>
+	</form>
+</Base>
+
+<style>
+	.login {
+		max-width: 24rem;
+		margin: 3rem auto;
+		padding: 2rem;
+		box-shadow: 0 20px 40px -24px var(--shadow);
+	}
+
+	h1 {
+		margin: 0 0 1.5rem;
+		font-size: 1.75rem;
+	}
+
+	button {
+		width: 100%;
+	}
+</style>

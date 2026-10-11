@@ -1,0 +1,13 @@
+---
+// HTML fragment with one page of rows, fetched by the admin list as the filters change or the page scrolls.
+import AdminRows from '../../components/AdminRows.astro';
+import { adminPage } from '../../lib/admin-list';
+
+export const partial = true;
+
+const { items, total } = await adminPage(Astro.url);
+Astro.response.headers.set('X-Total', String(total));
+Astro.response.headers.set('Cache-Control', 'no-store');
+---
+
+<AdminRows items={items} />

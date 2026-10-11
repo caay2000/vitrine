@@ -1,0 +1,215 @@
+---
+import AdminRows from '../../components/AdminRows.astro';
+import Base from '../../layouts/Base.astro';
+import { adminPage } from '../../lib/admin-list';
+import { listTags } from '../../lib/db';
+import { t } from '../../lib/site';
+
+const [{ items, total, q, tag }, tags] = await Promise.all([adminPage(Astro.url), listTags({ drafts: true })]);
+---
+
+<Base title={t.admin} admin>
+	<div class="toolbar">
+		<div>
+			<h1>{t.admin}</h1>
+			<p class="muted"><span id="total">{total}</span> {t.items}</p>
+		</div>
+		<a class="button" href="/admin/new">+ {t.newItem}</a>
+	</div>
+
+	<!-- Works as a plain GET form; the script below makes it filter as you type and load more on scroll. -->
+	<form class="filters" method="get" action="/admin" role="search">
+		<input type="search" id="q" name="q" value={q} placeholder={t.search} aria-label={t.search} autocomplete="off" />
+		{tag && <input type="hidden" name="tag" value={tag} />}
+		{
+			tags.length > 0 && (
+				<div class="tags">
+					{tags.map((entry) => (
+						<a
+							class="chip"
+							href={entry.slug === tag ? '/admin' : `/admin?tag=${entry.slug}`}
+							data-tag={entry.slug}
+							aria-current={entry.slug === tag ? 'true' : undefined}
+						>
+							{entry.name} <span class="count">{entry.count}</span>
+						</a>
+					))}
+				</div>
+			)
+		}
+	</form>
+
+	<p class="empty" id="empty" hidden={total > 0}>{t.noResults}</p>
+	<ul class="items" id="items" data-total={total}>
+		<AdminRows items={items} />
+	</ul>
+	<div id="more" aria-hidden="true"></div>
+</Base>
+
+<style>
+	.toolbar {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		margin-bottom: 1.5rem;
+	}
+
+	h1 {
+		margin: 0;
+		font-size: 2rem;
+	}
+
+	.toolbar p {
+		margin: 0.15rem 0 0;
+		font-size: 0.9rem;
+	}
+
+	.filters {
+		margin-bottom: 1.25rem;
+	}
+
+	input[type='search'] {
+		width: 100%;
+		padding: 0.7rem 1rem;
+		font: inherit;
+		color: inherit;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 999px;
+		transition:
+			border-color 0.15s,
+			box-shadow 0.15s;
+	}
+
+	input[type='search']:focus {
+		border-color: var(--accent);
+		box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+		outline: none;
+	}
+
+	.tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+		margin-top: 0.75rem;
+	}
+
+	.count {
+		font-size: 0.8em;
+		opacity: 0.55;
+	}
+
+	.items {
+		padding: 0;
+		margin: 0;
+		overflow: hidden;
+		list-style: none;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		transition: opacity 0.15s;
+	}
+
+	.items:empty {
+		display: none;
+	}
+
+	.items.loading {
+		opacity: 0.5;
+	}
+
+	#more {
+		height: 1px;
+	}
+</style>
+
+<script>
+	const search = document.querySelector<HTMLInputElement>('#q')!;
+	const chips = [...document.querySelectorAll<HTMLAnchorElement>('.filters .chip')];
+	const list = document.querySelector<HTMLElement>('#items')!;
+	const totalLabel = document.querySelector<HTMLElement>('#total')!;
+	const empty = document.querySelector<HTMLElement>('#empty')!;
+	const more = document.querySelector<HTMLElement>('#more')!;
+
+	let tag = chips.find((chip) => chip.hasAttribute('aria-current'))?.dataset.tag ?? '';
+	let total = Number(list.dataset.total);
+	let loading = false;
+	// Bumped on every filter change, so a slow answer to an old filter is thrown away.
+	let generation = 0;
+
+	const params = (offset = 0) => {
+		const result = new URLSearchParams();
+		if (search.value.trim()) result.set('q', search.value.trim());
+		if (tag) result.set('tag', tag);
+		if (offset) result.set('offset', String(offset));
+		return result;
+	};
+
+	async function load(reset: boolean) {
+		const mine = reset ? ++generation : generation;
+		loading = true;
+		if (reset) list.classList.add('loading');
+		try {
+			const response = await fetch(`/admin/rows?${params(reset ? 0 : list.children.length)}`);
+			// A logged-out session answers with the login page; go there instead of showing it as rows.
+			if (!response.ok || response.redirected) return location.reload();
+			const html = await response.text();
+			if (mine !== generation) return;
+			total = Number(response.headers.get('X-Total'));
+			if (reset) list.innerHTML = html;
+			else list.insertAdjacentHTML('beforeend', html);
+			totalLabel.textContent = String(total);
+			empty.hidden = total > 0;
+		} finally {
+			if (mine === generation) {
+				loading = false;
+				list.classList.remove('loading');
+				// The first page may not fill a tall screen; keep going until it does or there is nothing left.
+				if (list.children.length < total && more.getBoundingClientRect().top < innerHeight + 600) load(false);
+			}
+		}
+	}
+
+	function applyFilters() {
+		const query = params().toString();
+		history.replaceState(null, '', query ? `/admin?${query}` : '/admin');
+		// Remembered so "back to the list" on an item returns to the same filtered list.
+		sessionStorage.setItem('adminList', location.search);
+		load(true);
+	}
+
+	let timer: ReturnType<typeof setTimeout>;
+	search.addEventListener('input', () => {
+		clearTimeout(timer);
+		timer = setTimeout(applyFilters, 200);
+	});
+	search.form!.addEventListener('submit', (event) => {
+		event.preventDefault();
+		clearTimeout(timer);
+		applyFilters();
+	});
+
+	for (const chip of chips) {
+		chip.addEventListener('click', (event) => {
+			event.preventDefault();
+			tag = tag === chip.dataset.tag ? '' : chip.dataset.tag!;
+			for (const other of chips) {
+				if (other.dataset.tag === tag) other.setAttribute('aria-current', 'true');
+				else other.removeAttribute('aria-current');
+			}
+			applyFilters();
+		});
+	}
+
+	// Infinite scroll: load the next page shortly before the end of the list comes into view.
+	new IntersectionObserver(
+		(entries) => {
+			if (entries[0].isIntersecting && !loading && list.children.length < total) load(false);
+		},
+		{ rootMargin: '600px' },
+	).observe(more);
+
+	sessionStorage.setItem('adminList', location.search);
+</script>

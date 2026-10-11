@@ -1,0 +1,41 @@
+---
+import ItemForm from '../../components/ItemForm.astro';
+import Base from '../../layouts/Base.astro';
+import { createItem } from '../../lib/db';
+import { readItemForm } from '../../lib/form';
+import { t } from '../../lib/site';
+
+if (Astro.request.method === 'POST') {
+	const input = readItemForm(await Astro.request.formData());
+	if (input.title) {
+		const id = await createItem(input);
+		// Photos are added on the edit page, once the item exists.
+		return Astro.redirect(`/admin/${id}`);
+	}
+}
+---
+
+<Base title={t.newItem} admin>
+	<a class="back" id="back" href="/admin">← {t.backToList}</a>
+	<h1>{t.newItem}</h1>
+	<div class="card">
+		<ItemForm />
+	</div>
+</Base>
+
+<style>
+	h1 {
+		margin: 0.75rem 0 1.5rem;
+		font-size: 2rem;
+	}
+
+	.card {
+		max-width: 46rem;
+	}
+</style>
+
+<script>
+	// Return to the list as it was left: same search and tag.
+	const back = document.querySelector<HTMLAnchorElement>('#back')!;
+	back.href = `/admin${sessionStorage.getItem('adminList') ?? ''}`;
+</script>

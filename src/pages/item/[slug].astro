@@ -1,0 +1,421 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getItemBySlug, listItems, listPhotos } from '../../lib/db';
+import { site, t } from '../../lib/site';
+
+const item = await getItemBySlug(Astro.params.slug!);
+if (!item || !item.published) return new Response(null, { status: 404 });
+
+const photos = await listPhotos(item.id);
+const fields = site.fields.filter((field) => !field.private && item.fields[field.key]);
+const shortFields = fields.filter((field) => field.type === 'text');
+const longFields = fields.filter((field) => field.type === 'longtext');
+
+// Previous/next follow the list the visitor came from: the tag filter if there was one, else everything.
+const tagParam = Astro.url.searchParams.get('tag');
+const activeTag = item.tags.find((tag) => tag.slug === tagParam);
+const query = activeTag ? `?tag=${activeTag.slug}` : '';
+const list = await listItems({ tag: activeTag?.slug });
+const index = list.findIndex((entry) => entry.id === item.id);
+const previous = list[index - 1];
+const next = list[index + 1];
+
+const description = longFields[0] && item.fields[longFields[0].key].slice(0, 200);
+---
+
+<Base title={item.title} description={description} image={photos[0] && `/img/${photos[0].key}`}>
+	<nav class="item-nav">
+		<a class="back" href={`/${query}`}>← {t.back}{activeTag && ` · ${activeTag.name}`}</a>
+		<span class="pager">
+			{
+				previous ? (
+					<a class="chip" id="previous" href={`/item/${previous.slug}${query}`} title={previous.title}>
+						← {t.previous}
+					</a>
+				) : (
+					<span class="chip disabled">← {t.previous}</span>
+				)
+			}
+			<span class="position">{index + 1} / {list.length}</span>
+			{
+				next ? (
+					<a class="chip" id="next" href={`/item/${next.slug}${query}`} title={next.title}>
+						{t.next} →
+					</a>
+				) : (
+					<span class="chip disabled">{t.next} →</span>
+				)
+			}
+		</span>
+	</nav>
+
+	<article class:list={['item', { 'no-photos': photos.length === 0 }]}>
+		{
+			photos.length > 0 && (
+				<div class="viewer">
+					<a id="main-link" class="stage" href={`/img/${photos[0].key}`}>
+						<img
+							id="main-photo"
+							src={`/img/${photos[0].key}`}
+							width={photos[0].width}
+							height={photos[0].height}
+							alt={item.title}
+							style={`--ratio: ${photos[0].width / photos[0].height}; view-transition-name: photo-${item.id}`}
+						/>
+					</a>
+					{photos.length > 1 && (
+						<ul class="thumbs">
+							{photos.map((photo, i) => (
+								<li>
+									<a
+										href={`/img/${photo.key}`}
+										data-width={photo.width}
+										data-height={photo.height}
+										aria-current={i === 0 ? 'true' : undefined}
+									>
+										<img src={`/img/${photo.thumb_key}`} alt={`${item.title} (${i + 1})`} loading="lazy" />
+									</a>
+								</li>
+							))}
+						</ul>
+					)}
+				</div>
+			)
+		}
+
+		<div class="info">
+			<h1>{item.title}</h1>
+
+			{
+				item.tags.length > 0 && (
+					<p class="tags">
+						{item.tags.map((tag) => (
+							<a class="chip" href={`/?tag=${tag.slug}`}>
+								{tag.name}
+							</a>
+						))}
+					</p>
+				)
+			}
+
+			{
+				shortFields.length > 0 && (
+					<dl class="facts">
+						{shortFields.map((field) => (
+							<div>
+								<dt>{field.label}</dt>
+								<dd>{item.fields[field.key]}</dd>
+							</div>
+						))}
+					</dl>
+				)
+			}
+
+			{
+				longFields.map((field) => (
+					<section>
+						<h2>{field.label}</h2>
+						<p class="longtext">{item.fields[field.key]}</p>
+					</section>
+				))
+			}
+		</div>
+	</article>
+
+	<dialog id="lightbox" aria-label={item.title}>
+		<img alt={item.title} />
+		<button class="icon-button close" type="button" aria-label={t.close} title={t.close}>
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+		</button>
+		{
+			photos.length > 1 && (
+				<>
+					<button class="icon-button step previous" type="button" aria-label={t.previous} title={t.previous}>
+						<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>
+					</button>
+					<button class="icon-button step next" type="button" aria-label={t.next} title={t.next}>
+						<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+					</button>
+				</>
+			)
+		}
+	</dialog>
+</Base>
+
+<style>
+	.item-nav {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem 1.5rem;
+		margin-bottom: 1.75rem;
+	}
+
+	.pager {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.position {
+		font-size: 0.875rem;
+		font-variant-numeric: tabular-nums;
+		color: var(--muted);
+	}
+
+	.chip.disabled {
+		opacity: 0.4;
+	}
+
+	/* Photos beside the text on wide screens, stacked on narrow ones. */
+	.item {
+		display: grid;
+		gap: 2rem;
+	}
+
+	@media (min-width: 60rem) {
+		.item {
+			grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+			gap: 3rem;
+			align-items: start;
+		}
+
+		.item.no-photos {
+			grid-template-columns: minmax(0, 46rem);
+		}
+
+		.viewer {
+			position: sticky;
+			top: 5rem;
+		}
+	}
+
+	/* The stage reserves the same space for every photo, so the page does not jump between them.
+	   It is invisible: only the photo shows, as large as fits, never cropped. */
+	.stage {
+		display: flex;
+		align-items: flex-start;
+		justify-content: center;
+		aspect-ratio: 4 / 3;
+		max-height: 72vh;
+		container-type: size;
+		cursor: zoom-in;
+	}
+
+	/* Width is whichever is smaller: the full stage width, or the width the photo has at full stage height. */
+	#main-photo {
+		width: min(100cqw, 100cqh * var(--ratio));
+		height: auto;
+		aspect-ratio: var(--ratio);
+		border-radius: var(--radius);
+	}
+
+	.thumbs {
+		display: flex;
+		gap: 0.6rem;
+		padding: 0.25rem;
+		margin: 0.6rem -0.25rem 0;
+		overflow-x: auto;
+		list-style: none;
+	}
+
+	.thumbs a {
+		display: block;
+		border-radius: var(--radius-small);
+		opacity: 0.55;
+		transition: opacity 0.15s;
+	}
+
+	.thumbs a:hover,
+	.thumbs a[aria-current='true'] {
+		opacity: 1;
+	}
+
+	.thumbs a[aria-current='true'] {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
+	}
+
+	.thumbs img {
+		width: 5.5rem;
+		height: 4.125rem;
+		object-fit: cover;
+		border-radius: var(--radius-small);
+	}
+
+	h1 {
+		margin: 0 0 1rem;
+		font-size: clamp(1.9rem, 4vw, 2.75rem);
+		font-weight: 400;
+		letter-spacing: -0.02em;
+		overflow-wrap: anywhere;
+	}
+
+	.tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+		margin: 0 0 1.5rem;
+	}
+
+	.facts {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+		gap: 1rem 1.5rem;
+		padding: 1.1rem 0;
+		margin: 0 0 1.5rem;
+		border-block: 1px solid var(--border);
+	}
+
+	.facts dt {
+		font-size: 0.75rem;
+		font-weight: 600;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--muted);
+	}
+
+	.facts dd {
+		margin: 0.15rem 0 0;
+		font-family: var(--font-display);
+		font-size: 1.2rem;
+	}
+
+	h2 {
+		margin: 1.75rem 0 0.4rem;
+		font-size: 1.3rem;
+	}
+
+	.longtext {
+		margin: 0;
+		white-space: pre-line;
+		overflow-wrap: anywhere;
+	}
+
+	/* Full-screen photo view */
+	#lightbox {
+		width: 100vw;
+		max-width: none;
+		height: 100vh;
+		height: 100dvh;
+		max-height: none;
+		padding: 0;
+		background: rgb(10 9 8 / 0.94);
+		border: 0;
+	}
+
+	#lightbox[open] {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	#lightbox::backdrop {
+		background: rgb(10 9 8 / 0.94);
+	}
+
+	#lightbox img {
+		max-width: 100%;
+		max-height: 100%;
+		object-fit: contain;
+		cursor: zoom-out;
+	}
+
+	#lightbox .icon-button {
+		position: absolute;
+		width: 2.75rem;
+		height: 2.75rem;
+		color: #fff;
+		background: rgb(0 0 0 / 0.55);
+		border-color: rgb(255 255 255 / 0.25);
+	}
+
+	#lightbox .icon-button:hover {
+		background: rgb(0 0 0 / 0.8);
+	}
+
+	#lightbox .icon-button svg {
+		width: 1.35rem;
+		height: 1.35rem;
+	}
+
+	#lightbox .close {
+		top: 1rem;
+		right: 1rem;
+	}
+
+	#lightbox .step {
+		top: 50%;
+		translate: 0 -50%;
+	}
+
+	#lightbox .previous {
+		left: 1rem;
+	}
+
+	#lightbox .next {
+		right: 1rem;
+	}
+</style>
+
+<script>
+	const mainLink = document.querySelector<HTMLAnchorElement>('#main-link');
+	const mainPhoto = document.querySelector<HTMLImageElement>('#main-photo');
+	const thumbs = [...document.querySelectorAll<HTMLAnchorElement>('.thumbs a')];
+	const lightbox = document.querySelector<HTMLDialogElement>('#lightbox')!;
+	const lightboxPhoto = lightbox.querySelector('img')!;
+
+	let current = 0;
+
+	// Shows photo `index` in the main slot (and in the full-screen view when it is open).
+	// Without JavaScript the thumbnails are plain links to the full-size photo.
+	function show(index: number) {
+		current = (index + thumbs.length) % thumbs.length;
+		const thumb = thumbs[current];
+		const width = Number(thumb.dataset.width);
+		const height = Number(thumb.dataset.height);
+		mainPhoto!.width = width;
+		mainPhoto!.height = height;
+		mainPhoto!.style.setProperty('--ratio', String(width / height));
+		mainPhoto!.src = thumb.href;
+		mainLink!.href = thumb.href;
+		lightboxPhoto.src = thumb.href;
+		for (const other of thumbs) other.removeAttribute('aria-current');
+		thumb.setAttribute('aria-current', 'true');
+		thumb.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+	}
+
+	thumbs.forEach((thumb, index) => {
+		thumb.addEventListener('click', (event) => {
+			event.preventDefault();
+			show(index);
+		});
+	});
+
+	mainLink?.addEventListener('click', (event) => {
+		event.preventDefault();
+		lightboxPhoto.src = mainLink.href;
+		lightbox.showModal();
+	});
+
+	lightbox.querySelector('.close')!.addEventListener('click', () => lightbox.close());
+	lightbox.querySelector('.previous')?.addEventListener('click', () => show(current - 1));
+	lightbox.querySelector('.next')?.addEventListener('click', () => show(current + 1));
+	// Clicking the photo or the dark area around it closes the view.
+	lightbox.addEventListener('click', (event) => {
+		if (!(event.target as Element).closest('button')) lightbox.close();
+	});
+
+	// Arrow keys: step through photos in the full-screen view, otherwise move to the previous/next item.
+	document.addEventListener('keydown', (event) => {
+		if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+		const step = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : 0;
+		if (!step) return;
+		if (lightbox.open) {
+			if (thumbs.length > 1) show(current + step);
+		} else {
+			document.querySelector<HTMLAnchorElement>(step < 0 ? '#previous' : '#next')?.click();
+		}
+	});
+</script>

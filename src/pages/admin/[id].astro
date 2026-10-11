@@ -1,0 +1,314 @@
+---
+import ItemForm from '../../components/ItemForm.astro';
+import Base from '../../layouts/Base.astro';
+import { deleteItem, deletePhoto, getItem, listPhotos, updateItem } from '../../lib/db';
+import { readItemForm } from '../../lib/form';
+import { t } from '../../lib/site';
+
+const id = Number(Astro.params.id);
+let item = Number.isInteger(id) ? await getItem(id) : null;
+if (!item) return new Response(null, { status: 404 });
+
+let saved = false;
+
+if (Astro.request.method === 'POST') {
+	const form = await Astro.request.formData();
+	const action = form.get('action');
+
+	if (action === 'delete') {
+		await deleteItem(id);
+		return Astro.redirect('/admin');
+	}
+	if (action === 'delete-photo') {
+		const photos = await listPhotos(id);
+		const photoId = Number(form.get('photo_id'));
+		if (photos.some((photo) => photo.id === photoId)) await deletePhoto(photoId);
+		return Astro.redirect(`/admin/${id}`);
+	}
+	const input = readItemForm(form);
+	if (input.title) {
+		await updateItem(id, input);
+		item = (await getItem(id))!;
+		saved = true;
+	}
+}
+
+const photos = await listPhotos(id);
+---
+
+<Base title={item.title} admin>
+	<a class="back" id="back" href="/admin">← {t.backToList}</a>
+	<div class="heading">
+		<h1>{item.title}</h1>
+		<span class:list={['badge', { live: item.published }]}>{item.published ? t.published : t.draft}</span>
+		{item.published && <a href={`/item/${item.slug}`}>{t.view} →</a>}
+	</div>
+	{saved && <p class="notice">{t.saved}</p>}
+
+	<div class="columns">
+		<section class="card">
+			<ItemForm item={item} />
+		</section>
+
+		<section class="card">
+			<h2>{t.photos}</h2>
+			{photos.length === 0 && <p class="muted">{t.noPhotos}</p>}
+			<ul class="photos">
+				{
+					photos.map((photo) => (
+						<li>
+							<img src={`/img/${photo.thumb_key}`} alt="" loading="lazy" />
+							<form method="post" data-confirm={t.confirmDelete}>
+								<input type="hidden" name="photo_id" value={photo.id} />
+								<button class="icon-button" name="action" value="delete-photo" aria-label={t.delete} title={t.delete}>
+									<svg viewBox="0 0 24 24" aria-hidden="true">
+										<path d="M6 6l12 12M18 6L6 18" />
+									</svg>
+								</button>
+							</form>
+						</li>
+					))
+				}
+			</ul>
+			<label class="dropzone" for="upload">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" /></svg>
+				<span>{t.dropPhotos}</span>
+				<input
+					type="file"
+					id="upload"
+					accept="image/*"
+					multiple
+					data-item-id={item.id}
+					data-uploading={t.uploading}
+					data-failed={t.uploadFailed}
+				/>
+			</label>
+			<p id="upload-status" class="muted" role="status"></p>
+		</section>
+	</div>
+
+	<form method="post" class="delete" data-confirm={t.confirmDelete}>
+		<button class="danger" name="action" value="delete">{t.delete}</button>
+	</form>
+</Base>
+
+<style>
+	.heading {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem 1rem;
+		margin: 0.75rem 0 1.5rem;
+	}
+
+	h1 {
+		margin: 0;
+		font-size: 2rem;
+		overflow-wrap: anywhere;
+	}
+
+	h2 {
+		margin: 0 0 1rem;
+		font-size: 1.3rem;
+	}
+
+	.columns {
+		display: grid;
+		gap: 1.5rem;
+		align-items: start;
+	}
+
+	@media (min-width: 60rem) {
+		.columns {
+			grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+		}
+	}
+
+	.photos {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+		gap: 0.75rem;
+		padding: 0;
+		margin: 0 0 1rem;
+		list-style: none;
+	}
+
+	.photos:empty {
+		display: none;
+	}
+
+	.photos li {
+		position: relative;
+	}
+
+	.photos img {
+		width: 100%;
+		aspect-ratio: 4 / 3;
+		object-fit: cover;
+		border-radius: var(--radius-small);
+	}
+
+	.photos .icon-button {
+		position: absolute;
+		top: 0.35rem;
+		right: 0.35rem;
+		width: 1.75rem;
+		height: 1.75rem;
+		color: #fff;
+		background: rgb(0 0 0 / 0.6);
+		border-color: transparent;
+	}
+
+	.photos .icon-button:hover {
+		background: var(--danger);
+	}
+
+	.dropzone {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 1.75rem 1rem;
+		margin: 0;
+		font-weight: 500;
+		text-align: center;
+		color: var(--muted);
+		border: 1.5px dashed var(--border);
+		border-radius: var(--radius);
+		cursor: pointer;
+		transition:
+			border-color 0.15s,
+			background-color 0.15s,
+			color 0.15s;
+	}
+
+	.dropzone:hover,
+	.dropzone.over,
+	.dropzone:focus-within {
+		color: var(--accent);
+		background: color-mix(in srgb, var(--accent) 6%, transparent);
+		border-color: var(--accent);
+	}
+
+	.dropzone svg {
+		width: 1.75rem;
+		height: 1.75rem;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 1.6;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+
+	/* The label is the visible control; the input stays reachable by keyboard. */
+	.dropzone input {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		opacity: 0;
+	}
+
+	#upload-status {
+		min-height: 1.5rem;
+		margin: 0.5rem 0 0;
+		font-size: 0.9rem;
+	}
+
+	.delete {
+		display: flex;
+		justify-content: flex-end;
+		margin-top: 2rem;
+	}
+</style>
+
+<script>
+	// Photos are resized and re-encoded here, in the browser, so only small files are ever uploaded and stored.
+	const FULL_SIZE = 2000;
+	const THUMB_SIZE = 480;
+	const QUALITY = 0.82;
+
+	async function encode(bitmap: ImageBitmap, maxSide: number): Promise<{ blob: Blob; width: number; height: number }> {
+		const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+		const width = Math.round(bitmap.width * scale);
+		const height = Math.round(bitmap.height * scale);
+		const canvas = document.createElement('canvas');
+		canvas.width = width;
+		canvas.height = height;
+		canvas.getContext('2d')!.drawImage(bitmap, 0, 0, width, height);
+
+		const toBlob = (type: string) =>
+			new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, QUALITY));
+		let blob = await toBlob('image/webp');
+		// Browsers that cannot encode WebP silently return a PNG instead; fall back to JPEG.
+		if (blob?.type !== 'image/webp') blob = await toBlob('image/jpeg');
+		if (!blob) throw new Error('Could not encode image');
+		return { blob, width, height };
+	}
+
+	async function upload(file: File, itemId: string): Promise<void> {
+		const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+		const full = await encode(bitmap, FULL_SIZE);
+		const thumb = await encode(bitmap, THUMB_SIZE);
+		bitmap.close();
+
+		const body = new FormData();
+		body.set('item_id', itemId);
+		body.set('width', String(full.width));
+		body.set('height', String(full.height));
+		body.set('full', full.blob, 'full');
+		body.set('thumb', thumb.blob, 'thumb');
+		const response = await fetch('/admin/api/photos', { method: 'POST', body });
+		if (!response.ok) throw new Error(await response.text());
+	}
+
+	// Return to the list as it was left: same search and tag.
+	const back = document.querySelector<HTMLAnchorElement>('#back')!;
+	back.href = `/admin${sessionStorage.getItem('adminList') ?? ''}`;
+
+	const input = document.querySelector<HTMLInputElement>('#upload')!;
+	const dropzone = document.querySelector<HTMLElement>('.dropzone')!;
+	const status = document.querySelector<HTMLElement>('#upload-status')!;
+
+	async function uploadAll(files: File[]) {
+		if (files.length === 0) return;
+		input.disabled = true;
+		const failed: string[] = [];
+		for (const [index, file] of files.entries()) {
+			status.textContent = `${input.dataset.uploading} ${index + 1}/${files.length}…`;
+			try {
+				await upload(file, input.dataset.itemId!);
+			} catch {
+				failed.push(file.name);
+			}
+		}
+		if (failed.length === 0) {
+			location.reload();
+			return;
+		}
+		status.textContent = `${input.dataset.failed}: ${failed.join(', ')}`;
+		input.value = '';
+		input.disabled = false;
+	}
+
+	input.addEventListener('change', () => uploadAll([...(input.files ?? [])]));
+
+	for (const type of ['dragenter', 'dragover']) {
+		dropzone.addEventListener(type, (event) => {
+			event.preventDefault();
+			dropzone.classList.add('over');
+		});
+	}
+	dropzone.addEventListener('dragleave', () => dropzone.classList.remove('over'));
+	dropzone.addEventListener('drop', (event) => {
+		event.preventDefault();
+		dropzone.classList.remove('over');
+		const files = [...((event as DragEvent).dataTransfer?.files ?? [])];
+		uploadAll(files.filter((file) => file.type.startsWith('image/')));
+	});
+
+	for (const form of document.querySelectorAll<HTMLFormElement>('form[data-confirm]')) {
+		form.addEventListener('submit', (event) => {
+			if (!confirm(form.dataset.confirm)) event.preventDefault();
+		});
+	}
+</script>
