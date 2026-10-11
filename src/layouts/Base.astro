@@ -38,16 +38,6 @@ const pageTitle = title ? `${title} · ${site.title}` : site.title;
 			<div class="site-header-inner">
 				<a class="site-title" href="/">{site.title}</a>
 				<nav>
-					{
-						admin && (
-							<>
-								<a href="/admin">{t.admin}</a>
-								<form method="post" action="/admin/logout">
-									<button class="link">{t.logout}</button>
-								</form>
-							</>
-						)
-					}
 					<button class="icon-button" id="theme-toggle" type="button" aria-label={t.toggleTheme} title={t.toggleTheme}>
 						<svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
 							<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z"></path>
@@ -58,6 +48,22 @@ const pageTitle = title ? `${title} · ${site.title}` : site.title;
 							></path>
 						</svg>
 					</button>
+					<details class="menu">
+						<summary class="icon-button" aria-label={t.menu} title={t.menu}>
+							<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
+						</summary>
+						<div class="menu-panel">
+							<a href="/">{t.collection}</a>
+							<a href="/admin">{t.admin}</a>
+							{
+								admin && (
+									<form method="post" action="/admin/logout">
+										<button class="link">{t.logout}</button>
+									</form>
+								)
+							}
+						</div>
+					</details>
 				</nav>
 			</div>
 		</header>
@@ -83,6 +89,15 @@ const pageTitle = title ? `${title} · ${site.title}` : site.title;
 		const theme = isDark() ? 'light' : 'dark';
 		root.dataset.theme = theme;
 		localStorage.setItem('theme', theme);
+	});
+
+	// The menu closes when clicking anywhere else or pressing Escape.
+	const menu = document.querySelector<HTMLDetailsElement>('.menu')!;
+	document.addEventListener('click', (event) => {
+		if (!menu.contains(event.target as Node)) menu.open = false;
+	});
+	document.addEventListener('keydown', (event) => {
+		if (event.key === 'Escape') menu.open = false;
 	});
 </script>
 
@@ -213,17 +228,58 @@ const pageTitle = title ? `${title} · ${site.title}` : site.title;
 	.site-header nav {
 		display: flex;
 		align-items: center;
-		gap: 1.1rem;
-		font-size: 0.95rem;
+		gap: 0.5rem;
 	}
 
-	.site-header nav a {
+	.menu {
+		position: relative;
+	}
+
+	.menu summary {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: 1px solid var(--border);
+		border-radius: 999px;
+		cursor: pointer;
+		list-style: none;
+	}
+
+	.menu summary::-webkit-details-marker {
+		display: none;
+	}
+
+	.menu-panel {
+		position: absolute;
+		top: calc(100% + 0.5rem);
+		right: 0;
+		display: flex;
+		flex-direction: column;
+		min-width: 12rem;
+		padding: 0.4rem;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		box-shadow: 0 16px 32px -12px var(--shadow);
+	}
+
+	.menu-panel a,
+	.menu-panel button.link {
+		display: block;
+		width: 100%;
+		padding: 0.55rem 0.8rem;
+		font-size: 0.95rem;
+		text-align: left;
 		color: var(--text);
+		border: 0;
+		border-radius: var(--radius-small);
 		text-decoration: none;
 	}
 
-	.site-header nav a:hover {
-		color: var(--accent);
+	.menu-panel a:hover,
+	.menu-panel button.link:hover {
+		background: var(--surface-2);
+		filter: none;
 	}
 
 	.site-title {
@@ -302,11 +358,6 @@ const pageTitle = title ? `${title} · ${site.title}` : site.title;
 		border-radius: 0;
 		text-decoration: underline;
 		text-underline-offset: 0.2em;
-	}
-
-	.site-header button.link {
-		color: var(--text);
-		text-decoration: none;
 	}
 
 	button.danger {

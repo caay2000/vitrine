@@ -36,6 +36,8 @@ const en = {
 	dropPhotos: 'Choose photos or drop them here',
 	noPhotos: 'No photos yet.',
 	madeWith: 'Made with',
+	menu: 'Menu',
+	collection: 'Collection',
 };
 
 export type Strings = typeof en;
@@ -78,6 +80,8 @@ const es: Strings = {
 	dropPhotos: 'Elige fotos o arrástralas aquí',
 	noPhotos: 'Todavía no hay fotos.',
 	madeWith: 'Hecho con',
+	menu: 'Menú',
+	collection: 'Colección',
 };
 
 const ca: Strings = {
@@ -118,6 +122,8 @@ const ca: Strings = {
 	dropPhotos: 'Tria fotos o arrossega-les aquí',
 	noPhotos: 'Encara no hi ha fotos.',
 	madeWith: 'Fet amb',
+	menu: 'Menú',
+	collection: 'Col·lecció',
 };
 
 export const strings = { en, es, ca };
