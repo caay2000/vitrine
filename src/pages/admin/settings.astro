@@ -1,0 +1,213 @@
+---
+import Base from '../../layouts/Base.astro';
+import { languageNames, strings, type Lang } from '../../lib/i18n';
+import { readSettingsForm, saveSite, type Field } from '../../lib/settings';
+
+let { site, t } = Astro.locals;
+let saved = false;
+
+if (Astro.request.method === 'POST') {
+	site = readSettingsForm(await Astro.request.formData(), site);
+	await saveSite(site);
+	// The page is rendered with what was just saved, including a change of language.
+	Astro.locals.site = site;
+	Astro.locals.t = t = strings[site.lang];
+	saved = true;
+}
+
+// One empty row at the end, so a field can be added even without JavaScript.
+const rows: (Field | null)[] = [...site.fields, null];
+---
+
+<Base title={t.settings} admin>
+	<a class="back" href="/admin">← {t.backToList}</a>
+	<h1>{t.settings}</h1>
+	{saved && <p class="notice">{t.saved}</p>}
+
+	<form method="post" class="card">
+		<div class="field">
+			<label for="title">{t.siteTitle}</label>
+			<input type="text" id="title" name="title" value={site.title} required />
+		</div>
+		<div class="field">
+			<label for="description">{t.siteDescription}</label>
+			<input type="text" id="description" name="description" value={site.description} />
+		</div>
+		<div class="field">
+			<label for="lang">{t.language}</label>
+			<select id="lang" name="lang">
+				{
+					(Object.keys(languageNames) as Lang[]).map((lang) => (
+						<option value={lang} selected={lang === site.lang}>
+							{languageNames[lang]}
+						</option>
+					))
+				}
+			</select>
+		</div>
+
+		<h2>{t.fields}</h2>
+		<p class="muted hint">{t.fieldsHint}</p>
+		<ul class="fields" id="fields">
+			{
+				rows.map((field) => (
+					<li class="row">
+						<input type="hidden" name="field-key" value={field?.key ?? ''} />
+						<input type="text" name="field-label" value={field?.label ?? ''} placeholder={t.fieldName} aria-label={t.fieldName} />
+						<select name="field-type" aria-label={t.fieldType}>
+							<option value="text" selected={field?.type !== 'longtext'}>
+								{t.shortText}
+							</option>
+							<option value="longtext" selected={field?.type === 'longtext'}>
+								{t.longText}
+							</option>
+						</select>
+						<select name="field-visibility" aria-label={t.visibility}>
+							<option value="public" selected={!field?.private}>
+								{t.public}
+							</option>
+							<option value="private" selected={field?.private}>
+								{t.private}
+							</option>
+						</select>
+						<span class="row-actions" hidden>
+							<button type="button" class="icon-button" data-move="-1" aria-label={t.moveUp} title={t.moveUp}>
+								<svg viewBox="0 0 24 24" aria-hidden="true">
+									<path d="M6 14l6-6 6 6" />
+								</svg>
+							</button>
+							<button type="button" class="icon-button" data-move="1" aria-label={t.moveDown} title={t.moveDown}>
+								<svg viewBox="0 0 24 24" aria-hidden="true">
+									<path d="M6 10l6 6 6-6" />
+								</svg>
+							</button>
+							<button type="button" class="icon-button" data-remove aria-label={t.delete} title={t.delete}>
+								<svg viewBox="0 0 24 24" aria-hidden="true">
+									<path d="M6 6l12 12M18 6L6 18" />
+								</svg>
+							</button>
+						</span>
+					</li>
+				))
+			}
+		</ul>
+		<button type="button" class="secondary" id="add-field" hidden>+ {t.addField}</button>
+
+		<div class="actions">
+			<button>{t.save}</button>
+		</div>
+	</form>
+</Base>
+
+<style>
+	h1 {
+		margin: 0.75rem 0 1.5rem;
+		font-size: 2rem;
+	}
+
+	h2 {
+		margin: 2rem 0 0.25rem;
+		font-size: 1.3rem;
+	}
+
+	.card {
+		max-width: 52rem;
+	}
+
+	.hint {
+		margin: 0 0 1rem;
+		font-size: 0.9rem;
+	}
+
+	.fields {
+		display: grid;
+		gap: 0.6rem;
+		padding: 0;
+		margin: 0 0 1rem;
+		list-style: none;
+	}
+
+	/* Name, type, visibility and buttons in a line; on a phone the name takes its own line. */
+	.row {
+		display: grid;
+		grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+		gap: 0.5rem;
+		align-items: center;
+	}
+
+	@media (max-width: 40rem) {
+		.row {
+			grid-template-columns: 1fr 1fr;
+			padding-bottom: 0.75rem;
+			border-bottom: 1px solid var(--border);
+		}
+
+		.row input[type='text'],
+		.row-actions {
+			grid-column: 1 / -1;
+		}
+	}
+
+	.row-actions {
+		display: flex;
+		gap: 0.3rem;
+	}
+
+	.row-actions[hidden] {
+		display: none;
+	}
+
+	.secondary {
+		color: var(--text);
+		background: transparent;
+		border-color: var(--border);
+	}
+
+	.secondary:hover {
+		background: var(--surface-2);
+		filter: none;
+	}
+
+	.actions {
+		display: flex;
+		justify-content: flex-end;
+		padding-top: 1.25rem;
+		margin-top: 1.5rem;
+		border-top: 1px solid var(--border);
+	}
+</style>
+
+<script>
+	// Without JavaScript the list still works: one spare empty row to add a field, and clearing a
+	// name removes it. With it, rows get add, remove and reorder buttons.
+	const list = document.querySelector<HTMLElement>('#fields')!;
+	const addButton = document.querySelector<HTMLButtonElement>('#add-field')!;
+
+	// The spare empty row doubles as the template for new ones.
+	const template = list.lastElementChild!.cloneNode(true) as HTMLElement;
+
+	for (const actions of list.querySelectorAll<HTMLElement>('.row-actions')) actions.hidden = false;
+	template.querySelector<HTMLElement>('.row-actions')!.hidden = false;
+	addButton.hidden = false;
+
+	addButton.addEventListener('click', () => {
+		const row = template.cloneNode(true) as HTMLElement;
+		list.appendChild(row);
+		row.querySelector<HTMLInputElement>('input[type="text"]')!.focus();
+	});
+
+	list.addEventListener('click', (event) => {
+		const button = (event.target as Element).closest<HTMLButtonElement>('button');
+		const row = button?.closest<HTMLElement>('.row');
+		if (!button || !row) return;
+		if (button.dataset.remove !== undefined) {
+			row.remove();
+		} else if (button.dataset.move === '-1') {
+			const previous = row.previousElementSibling;
+			if (previous) list.insertBefore(row, previous);
+		} else if (button.dataset.move === '1') {
+			const next = row.nextElementSibling;
+			if (next) list.insertBefore(next, row);
+		}
+	});
+</script>

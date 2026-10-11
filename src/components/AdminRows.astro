@@ -1,11 +1,11 @@
 ---
 import type { ItemSummary } from '../lib/db';
-import { t } from '../lib/site';
 
 interface Props {
 	items: ItemSummary[];
 }
 
+const { t } = Astro.locals;
 const { items } = Astro.props;
 ---
 

@@ -1,7 +1,8 @@
 ---
 import Base from '../../layouts/Base.astro';
 import { checkPassword, hasAdminPassword } from '../../lib/auth';
-import { t } from '../../lib/site';
+
+const { t } = Astro.locals;
 
 let error = hasAdminPassword() ? '' : t.noPassword;
 

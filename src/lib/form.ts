@@ -1,10 +1,10 @@
 import type { ItemInput } from './db';
-import { site } from './site';
+import type { Field } from './settings';
 
 // Reads the fields rendered by ItemForm.astro.
-export function readItemForm(form: FormData): ItemInput {
+export function readItemForm(form: FormData, siteFields: Field[]): ItemInput {
 	const fields: Record<string, string> = {};
-	for (const field of site.fields) {
+	for (const field of siteFields) {
 		const value = String(form.get(`field-${field.key}`) ?? '').trim();
 		if (value) fields[field.key] = value;
 	}

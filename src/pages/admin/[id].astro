@@ -3,7 +3,8 @@ import ItemForm from '../../components/ItemForm.astro';
 import Base from '../../layouts/Base.astro';
 import { deleteItem, deletePhoto, getItem, listPhotos, updateItem } from '../../lib/db';
 import { readItemForm } from '../../lib/form';
-import { t } from '../../lib/site';
+
+const { site, t } = Astro.locals;
 
 const id = Number(Astro.params.id);
 let item = Number.isInteger(id) ? await getItem(id) : null;
@@ -25,7 +26,7 @@ if (Astro.request.method === 'POST') {
 		if (photos.some((photo) => photo.id === photoId)) await deletePhoto(photoId);
 		return Astro.redirect(`/admin/${id}`);
 	}
-	const input = readItemForm(form);
+	const input = readItemForm(form, site.fields);
 	if (input.title) {
 		await updateItem(id, input);
 		item = (await getItem(id))!;

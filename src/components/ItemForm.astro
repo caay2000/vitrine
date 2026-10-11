@@ -1,11 +1,11 @@
 ---
 import { listTags, type Item } from '../lib/db';
-import { site, t } from '../lib/site';
 
 interface Props {
 	item?: Item;
 }
 
+const { site, t } = Astro.locals;
 const { item } = Astro.props;
 const allTags = await listTags({ drafts: true });
 ---
