@@ -1,6 +1,5 @@
 ---
 import '@fontsource-variable/fraunces/opsz.css';
-import { site, t } from '../lib/site';
 
 interface Props {
 	title?: string;
@@ -10,6 +9,7 @@ interface Props {
 	admin?: boolean;
 }
 
+const { site, t } = Astro.locals;
 const { title, description = site.description, image, admin = false } = Astro.props;
 const pageTitle = title ? `${title} · ${site.title}` : site.title;
 ---
@@ -57,9 +57,12 @@ const pageTitle = title ? `${title} · ${site.title}` : site.title;
 							<a href="/admin">{t.admin}</a>
 							{
 								admin && (
-									<form method="post" action="/admin/logout">
-										<button class="link">{t.logout}</button>
-									</form>
+									<>
+										<a href="/admin/settings">{t.settings}</a>
+										<form method="post" action="/admin/logout">
+											<button class="link">{t.logout}</button>
+										</form>
+									</>
 								)
 							}
 						</div>
@@ -427,6 +430,7 @@ const pageTitle = title ? `${title} · ${site.title}` : site.title;
 
 	input[type='text'],
 	input[type='password'],
+	select,
 	textarea {
 		width: 100%;
 		padding: 0.65rem 0.8rem;
@@ -442,6 +446,7 @@ const pageTitle = title ? `${title} · ${site.title}` : site.title;
 
 	input[type='text']:focus,
 	input[type='password']:focus,
+	select:focus,
 	textarea:focus {
 		border-color: var(--accent);
 		box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);

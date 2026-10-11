@@ -1,7 +1,8 @@
 ---
 import Base from '../../layouts/Base.astro';
 import { getItemBySlug, listItems, listPhotos } from '../../lib/db';
-import { site, t } from '../../lib/site';
+
+const { site, t } = Astro.locals;
 
 const item = await getItemBySlug(Astro.params.slug!);
 if (!item || !item.published) return new Response(null, { status: 404 });

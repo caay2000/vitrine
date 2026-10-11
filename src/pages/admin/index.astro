@@ -3,7 +3,8 @@ import AdminRows from '../../components/AdminRows.astro';
 import Base from '../../layouts/Base.astro';
 import { adminPage } from '../../lib/admin-list';
 import { listTags } from '../../lib/db';
-import { t } from '../../lib/site';
+
+const { t } = Astro.locals;
 
 const [{ items, total, q, tag }, tags] = await Promise.all([adminPage(Astro.url), listTags({ drafts: true })]);
 ---

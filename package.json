@@ -12,9 +12,9 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
+    "check": "astro check",
     "generate-types": "wrangler types",
-    "db:migrate:local": "wrangler d1 migrations apply DB --local",
-    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "postinstall": "wrangler types",
     "deploy": "astro build && wrangler deploy"
   },
   "dependencies": {
@@ -27,5 +27,21 @@
     "@astrojs/check": "^0.9.10",
     "@types/node": "^26.6.5",
     "typescript": "^6.0.3"
+  },
+  "cloudflare": {
+    "bindings": {
+      "ADMIN_PASSWORD": {
+        "description": "Password for the admin panel at `/admin`. Choose a long one: anyone who has it can edit the collection."
+      },
+      "DB": {
+        "description": "Database with the items of the collection."
+      },
+      "PHOTOS": {
+        "description": "Bucket where the photos are stored."
+      },
+      "SESSION": {
+        "description": "Login sessions of the admin panel."
+      }
+    }
   }
 }

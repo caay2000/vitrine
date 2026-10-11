@@ -3,10 +3,11 @@ import ItemForm from '../../components/ItemForm.astro';
 import Base from '../../layouts/Base.astro';
 import { createItem } from '../../lib/db';
 import { readItemForm } from '../../lib/form';
-import { t } from '../../lib/site';
+
+const { site, t } = Astro.locals;
 
 if (Astro.request.method === 'POST') {
-	const input = readItemForm(await Astro.request.formData());
+	const input = readItemForm(await Astro.request.formData(), site.fields);
 	if (input.title) {
 		const id = await createItem(input);
 		// Photos are added on the edit page, once the item exists.

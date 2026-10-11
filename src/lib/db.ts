@@ -1,5 +1,5 @@
 import { env } from 'cloudflare:workers';
-import { fold } from './text';
+import { fold, slugify } from './text';
 
 export interface Tag {
 	slug: string;
@@ -136,18 +136,6 @@ async function setItemTags(itemId: number, names: string[]): Promise<void> {
 			),
 		),
 	]);
-}
-
-function slugify(text: string, fallback = 'item'): string {
-	return (
-		text
-			.normalize('NFD')
-			.replace(/[̀-ͯ]/g, '')
-			.toLowerCase()
-			.replace(/[^a-z0-9]+/g, '-')
-			.replace(/^-+|-+$/g, '')
-			.slice(0, 80) || fallback
-	);
 }
 
 async function uniqueSlug(title: string): Promise<string> {

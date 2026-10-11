@@ -1,8 +1,8 @@
 ---
 import Base from '../layouts/Base.astro';
 import { listItems, listTags } from '../lib/db';
-import { site, t } from '../lib/site';
 
+const { site, t } = Astro.locals;
 const tags = await listTags();
 // An unknown tag in the URL is ignored rather than showing an empty page.
 const activeTag = tags.find((tag) => tag.slug === Astro.url.searchParams.get('tag'));
