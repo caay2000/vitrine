@@ -1,29 +1,41 @@
 # Vitrine
 
-Simple self-hosted gallery for collectors. Catalogue your items with photos, history, origin and prices. Runs for free on Cloudflare.
+**A simple gallery for your collection.** Photos, history, origin and prices of every piece, on a site of your own that runs for free on Cloudflare.
 
-- Public gallery with one page per item, tags to filter by, and previous/next navigation between items.
-- Password-protected admin panel to create items and upload photos, usable from a phone.
-- Photos are resized and converted to WebP in the browser before upload, so storage stays small.
-- Everything about your collection is set from the admin panel: title, language (English, Spanish or Catalan) and the fields each item has (description, history, price…). No code to edit.
+[![The gallery of a sample collection](docs/screenshots/gallery.jpg)](https://www.padritrams.workers.dev)
 
-Built with [Astro](https://astro.build) on Cloudflare Workers, with D1 for the data and R2 for the photos.
+**[See it live →](https://www.padritrams.workers.dev)** Padritrams, a tram collection.
+
+## What you get
+
+- **A gallery** anyone can browse, with tags to filter by and one page per piece.
+- **An admin panel** behind a password, to add pieces and upload photos from your phone or computer.
+- **Your own fields.** Description, history, price… you decide what each piece has, and which fields stay private.
+- **No code to edit.** Title, language (English, Spanish or Catalan) and fields are set from the admin panel.
+- **Small and free to run.** Photos are shrunk before upload, so thousands fit in Cloudflare's free 10 GB.
+
+| A piece, in the dark theme | Editing a piece |
+|---|---|
+| ![Page of a piece](docs/screenshots/item.jpg) | ![Admin panel](docs/screenshots/admin.jpg) |
+
+| Settings | On a phone |
+|---|---|
+| ![Settings page](docs/screenshots/settings.jpg) | <img src="docs/screenshots/mobile.jpg" alt="Gallery on a phone" width="260"> |
 
 ## Get your own
 
-You need a free [Cloudflare](https://dash.cloudflare.com/sign-up) account with R2 enabled (R2 asks for a payment card, but the first 10 GB are free).
+You need a free [Cloudflare](https://dash.cloudflare.com/sign-up) account with R2 enabled. R2 asks for a payment card, but the first 10 GB are free.
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/caay2000/vitrine)
 
-The button copies this repository to your GitHub account, creates the database and the photo bucket, asks you for the admin password and publishes the site. Then:
+The button sets everything up and asks you to choose the admin password. When it finishes:
 
-1. Open `/admin` on your new site and log in with the password you chose.
-2. Open the menu, go to **Settings**, and set the title, language and fields of your collection.
-3. Start adding items.
+1. Open `/admin` on your new site and log in.
+2. In the menu, go to **Settings** and set the title, language and fields of your collection.
+3. Start adding pieces.
 
-The database sets itself up, and updates itself when a new version adds something to it.
-
-### From the command line
+<details>
+<summary>From the command line instead</summary>
 
 ```sh
 git clone https://github.com/caay2000/vitrine.git && cd vitrine
@@ -39,9 +51,11 @@ To publish several collections from the same copy of the code, give each one its
 VITRINE_WRANGLER_CONFIG=/path/to/other-site/wrangler.jsonc npm run deploy
 ```
 
-## Local development
+</details>
 
-Requires Node 22.12 or newer.
+## Development
+
+Built with [Astro](https://astro.build) on Cloudflare Workers, with D1 for the data and R2 for the photos. Requires Node 22.12 or newer.
 
 ```sh
 npm install
@@ -55,4 +69,4 @@ Database changes go in [`migrations/`](migrations) as numbered SQL files; the ap
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). The photos in the screenshots are by Wikimedia Commons contributors; see [the credits](docs/screenshots/README.md).
